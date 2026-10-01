@@ -1,0 +1,2204 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IntelligencerAI — картинка, когда времени нет</title>
+  <meta name="description" content="IntelligencerAI делает баннеры, обложки и слайды презентации по вашему тексту. Дизайнера он не заменяет — он нужен, когда ждать нельзя.">
+  <meta name="theme-color" content="#EDEEEA" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F1216" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EDEEEA'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23141C24' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%232246D8'/%3E%3C/svg%3E"
+        media="(prefers-color-scheme: light)"
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230F1216'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23E8EAED' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%235B7CFA'/%3E%3C/svg%3E"
+        media="(prefers-color-scheme: dark)">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@600;700;800&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+  <script>
+    /* Тема ставится до первой отрисовки: иначе на тёмной системе
+       страница мигнёт светлым листом. Выбор юзера важнее настроек ОС. */
+    (function () {
+      document.documentElement.classList.add('js');
+      var saved = null;
+      try { saved = localStorage.getItem('theme'); } catch (e) { /* приватный режим */ }
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+
+  <style>
+    /* ─── система токенов ─────────────────────────────────
+       Устройство как у cursor.com: одна база значений в :root
+       и перекрытие в [data-theme=dark]. Приглушённый текст и все
+       линии — не отдельные цвета, а альфа от --fg. Благодаря
+       этому тёмная тема не требует дублей: те же 8/14/65/78%
+       работают на светлом листе и на тёмном.
+
+       Предмет проекта прежний: чертёжный лист в клетку, синий
+       маркер, красный — только в отсчёте до сдачи. ────────── */
+
+    :root {
+      color-scheme: light;
+
+      /* поверхности и текст */
+      --bg: #EDEEEA;
+      --fg: #141C24;
+      --fg-02: #2B333D;
+      --card: #F8F8F4;
+      --card-02: #F1F2EE;
+      --card-03: #E9EAE5;
+      --card-04: #E0E1DB;
+
+      /* акценты */
+      --accent: #2246D8;
+      --accent-ink: #FFFFFF;
+      --signal: #B22D12;
+
+      /* альфа-слой от fg: один набор процентов на обе темы */
+      --fg-08: color-mix(in oklab, var(--fg) 8%, transparent);
+      --fg-14: color-mix(in oklab, var(--fg) 14%, transparent);
+      --fg-65: color-mix(in oklab, var(--fg) 65%, transparent);
+      --fg-78: color-mix(in oklab, var(--fg) 78%, transparent);
+
+      /* семантические имена — на них ссылается вся страница */
+      --paper: var(--bg);
+      --sheet: var(--card);
+      --ink: var(--fg);
+      --ink-2: var(--fg-78);
+      --ink-3: var(--fg-65);
+      --tone: var(--accent);
+      --line: var(--fg-14);
+      --line-soft: var(--fg-08);
+      --grid-minor: color-mix(in oklab, var(--fg) 5%, transparent);
+      --grid-major: color-mix(in oklab, var(--fg) 9%, transparent);
+
+      /* стекло шапки, затемнение, артборд, тёмная плашка */
+      --glass: color-mix(in srgb, var(--bg) 74%, transparent);
+      --scrim: rgb(0 0 0 / 0.5);
+      --artboard: #FFFFFF;
+      --plate-bg: #141C24;
+      --plate-fg: #EDEEEA;
+      --plate-ink: rgb(237 238 234 / 0.74);
+      --plate-note: rgb(237 238 234 / 0.6);
+      --shadow-modal: 0 18px 50px rgb(0 0 0 / 0.22);
+
+      /* шрифты: моно — только продуктовый UI, как у них */
+      --display: "Wix Madefor Display", "Golos Text", system-ui, sans-serif;
+      --text: "Golos Text", system-ui, -apple-system, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+      --shell: 1180px;
+      --gutter: clamp(20px, 5vw, 48px);
+
+      /* ─── движение ──────────────────────────────────────
+         Темпы и кривые сняты с apple.com (localnav/globalnav),
+         nothing.tech и cursor.com: 150ms на c-bezier(.4,0,.2,1) —
+         их быстрый, 320ms на c-bezier(.4,0,.6,1) — их основной.
+         Плюс формула каскада из globalnav:
+         min(160ms + 20ms × (всего − номер), 240ms).          */
+
+      --t-fast: 150ms;
+      --ease-fast: cubic-bezier(0.4, 0, 0.2, 1);
+      --t-base: 320ms;
+      --ease: cubic-bezier(0.4, 0, 0.6, 1);
+      --t-slow: 560ms;
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --stagger-step: 20ms;
+      --stagger-base: 160ms;
+      --stagger-cap: 240ms;
+      --blur-glass: saturate(180%) blur(20px);
+
+      /* ─── скругления ────────────────────────────────────
+         Шкала cursor.com: карточка 4, окно 8, пилюля 999.
+         Бумага в клетку скругляется чуть меньше — 2px. ─────── */
+
+      --r-xs: 4px;
+      --r-sm: 4px;
+      --r-md: 8px;
+      --r-xl: 12px;
+      --r-paper: 2px;
+      --r-pill: 999px;
+
+      /* пружинная кривая cursor.com: перелёт с быстрым торможением */
+      --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Тёмная тема. Тёплый тёмный, а не нейтральный чёрный:
+       тот же приём, что у cursor (у них #14120b), только холоднее —
+       под синий маркер нашего листа. */
+    [data-theme="dark"] {
+      color-scheme: dark;
+
+      --bg: #0F1216;
+      --fg: #E8EAED;
+      --fg-02: #C6CBD2;
+      --card: #161A1F;
+      --card-02: #1C2127;
+      --card-03: #232A31;
+      --card-04: #2B333B;
+
+      /* синий на тёмном приходится осветлять: #2246D8 на #0F1216
+         даёт контраст 2.6 и не читается */
+      --accent: #5B7CFA;
+      --accent-ink: #0B0E12;
+      --signal: #FF6A4D;
+
+      /* артборд — это картинка, а не интерфейс: он остаётся светлым */
+      --artboard: #F4F5F6;
+
+      --plate-bg: #1A1F26;
+      --plate-fg: #E8EAED;
+      --plate-ink: rgb(232 234 237 / 0.74);
+      --plate-note: rgb(232 234 237 / 0.6);
+      --shadow-modal: 0 18px 50px rgb(0 0 0 / 0.55);
+    }
+
+    /* каскад по индексу: --i объявляется в разметке */
+    [data-stagger] > * {
+      transition-delay: min(
+        calc(var(--stagger-base) + var(--stagger-step) * var(--i, 0)),
+        var(--stagger-cap)
+      );
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      background: var(--paper);
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      position: relative;
+      margin: 0;
+      font-family: var(--text);
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--ink);
+      background: var(--paper);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* клетчатая бумага */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(to right, var(--grid-minor) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-minor) 1px, transparent 1px),
+        linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+    }
+
+    h1, h2, h3, p, ul, ol, figure, fieldset, legend { margin: 0; padding: 0; }
+    ul, ol { list-style: none; }
+    a { color: inherit; }
+
+    :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .skip {
+      position: absolute;
+      left: var(--gutter);
+      top: -100px;
+      z-index: 20;
+      padding: 12px 18px;
+      background: var(--ink);
+      color: var(--paper);
+      text-decoration: none;
+      transition: top 150ms ease;
+    }
+
+    .skip:focus { top: 12px; }
+
+    .shell {
+      width: 100%;
+      max-width: var(--shell);
+      margin-inline: auto;
+      padding-inline: var(--gutter);
+    }
+
+    /* ─── кнопки ───────────────────────────────────────────
+   Приём cursor.com: заливка инверсная — фон равен тексту,
+   цвет равен фону страницы. Поэтому в тёмной теме кнопка
+   светлеет сама, без отдельных правил. Форма — пилюля,
+   рамка 1px, а не «обводка вокруг заливки». */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 12px 22px;
+      border: 1px solid var(--fg);
+      border-radius: var(--r-pill);
+      background: var(--fg);
+      color: var(--paper);
+      font-family: var(--text);
+      font-size: 0.975rem;
+      font-weight: 500;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition:
+        background-color var(--t-fast) var(--ease-fast),
+        color var(--t-fast) var(--ease-fast),
+        border-color var(--t-fast) var(--ease-fast);
+    }
+
+    .btn:hover { background: var(--fg-02); border-color: var(--fg-02); }
+
+    .btn--ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+
+    .btn--ghost:hover { background: var(--fg); border-color: var(--fg); color: var(--paper); }
+
+    .btn--sm { min-height: 44px; padding: 10px 16px; font-size: 0.9rem; }
+
+    .btn--tiny {
+      min-height: 44px;
+      padding: 8px 14px;
+      border-color: var(--line);
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 0.85rem;
+    }
+
+    .btn--tiny:hover { background: var(--fg); border-color: var(--fg); color: var(--paper); }
+
+    .btn--big { min-height: 54px; padding: 14px 30px; font-size: 1.05rem; }
+
+    /* ─── шапка ────────────────────────────────────────── */
+
+    .top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      background: transparent;
+      transition: background-color 220ms ease, border-color 220ms ease;
+      border-bottom: 1px solid transparent;
+    }
+
+    /* размытие как у apple.com: saturate(180%) перед blur(20px) */
+    .top.is-solid {
+      background: var(--glass);
+      backdrop-filter: var(--blur-glass);
+      -webkit-backdrop-filter: var(--blur-glass);
+      border-bottom-color: var(--line-soft);
+    }
+
+    /* смена плотности шапки — тот же 320ms токен, что у них на localnav */
+    .top, .top.is-solid {
+      transition:
+        background-color var(--t-base) var(--ease),
+        border-color var(--t-base) var(--ease),
+        backdrop-filter var(--t-base) var(--ease);
+    }
+
+    .top__row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      min-height: 68px;
+    }
+
+    /* логотип — их собственный знак, ширина по пропорции 895×118 */
+    .mark {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding-block: 4px;
+      text-decoration: none;
+    }
+
+    .mark svg {
+      display: block;
+      width: auto;
+      height: 22px;
+      color: var(--ink);
+    }
+
+    .mark svg path { fill: currentColor; }
+
+    .top__nav { display: none; gap: 26px; margin-left: auto; font-size: 0.94rem; }
+
+    .top__nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      color: var(--ink-2);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: color 150ms ease, border-color 150ms ease;
+    }
+
+    .top__nav a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+    .top__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
+    /* на узком экране три контрола не влезают — «Прислать задачу»
+       уходит из шапки, он есть в первом экране ниже */
+    @media (max-width: 560px) {
+      .top__actions .btn { display: none; }
+    }
+
+    .top__nav + .top__actions { margin-left: 0; }
+
+    /* ─── вход ─────────────────────────────────────────── */
+
+    .login__btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 10px 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-pill);
+      background: transparent;
+      color: var(--fg);
+      font-family: var(--text);
+      font-size: 0.925rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition:
+        background-color var(--t-fast) var(--ease-fast),
+        color var(--t-fast) var(--ease-fast),
+        border-color var(--t-fast) var(--ease-fast);
+    }
+
+    .login__btn:hover { background: var(--fg); color: var(--paper); border-color: var(--fg); }
+
+    /* Имя кнопки не меняется: состояние «включено» уже передаёт
+           aria-pressed, поэтому «Тема» читается один раз, а не два. */
+
+    .theme {
+      position: relative;
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      min-width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--r-pill);
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition:
+        background-color var(--t-fast) var(--ease-fast),
+        color var(--t-fast) var(--ease-fast),
+        border-color var(--t-fast) var(--ease-fast);
+    }
+
+    .theme:hover { background: var(--card); color: var(--fg); border-color: var(--fg-14); }
+
+    /* обе иконки в одном месте; показываем ту, что не наступит */
+    .theme i { position: absolute; transition: transform var(--t-base) var(--ease-spring); }
+
+    .theme .fa-sun { transform: rotate(0) scale(1); opacity: 1; }
+    .theme .fa-moon { transform: rotate(-70deg) scale(0.4); opacity: 0; }
+
+    [data-theme="dark"] .theme .fa-sun { transform: rotate(70deg) scale(0.4); opacity: 0; }
+    [data-theme="dark"] .theme .fa-moon { transform: rotate(0) scale(1); opacity: 1; }
+
+    /* ─── окно входа ──────────────────────────────────── */
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: var(--gutter);
+    }
+
+    .modal[hidden] { display: none; }
+
+    .modal__scrim {
+      position: absolute;
+      inset: 0;
+      background: var(--scrim);
+      animation: fade-in var(--t-base) var(--ease) both;
+    }
+
+    .modal__box {
+      position: relative;
+      width: min(100%, 420px);
+      max-height: calc(100vh - 2 * var(--gutter));
+      overflow-y: auto;
+      padding: clamp(26px, 4vw, 36px);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      background: var(--paper);
+      box-shadow: var(--shadow-modal);
+      animation: pop-in var(--t-slow) var(--ease-out-expo) both;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* подъём с лёгким перелётом — expo-затухание, как у spring с малой жёсткостью */
+    @keyframes pop-in {
+      from { opacity: 0; transform: translateY(14px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* выход быстрее входа: 320ms -> 150ms, обратный порядок читается быстрее */
+    .modal.is-closing .modal__scrim { animation: fade-out var(--t-fast) var(--ease-fast) both; }
+
+    .modal.is-closing .modal__box { animation: pop-out var(--t-fast) var(--ease-fast) both; }
+
+    @keyframes fade-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    @keyframes pop-out {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(8px) scale(0.99); }
+    }
+
+    .modal__x {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 1.05rem;
+      cursor: pointer;
+      transition: background-color var(--t-fast) var(--ease-fast), color var(--t-fast) var(--ease-fast);
+    }
+
+    .modal__x:hover { background: var(--fg-08); color: var(--ink); }
+
+    .modal__brand {
+      font-family: var(--display);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .modal__title {
+      margin-top: 6px;
+      font-family: var(--display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+    }
+
+    .modal__lead { margin-top: 10px; color: var(--ink-2); font-size: 0.95rem; }
+
+    .login { display: grid; gap: 18px; margin-top: 26px; }
+
+    .login__field { display: grid; gap: 6px; }
+
+    .login__label { font-size: 0.9rem; color: var(--ink-2); }
+
+    .login__input {
+      min-height: 48px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--card);
+      color: var(--ink);
+      font-family: var(--text);
+      font-size: 1rem;
+    }
+
+    .login__input::placeholder { color: var(--ink-3); }
+
+    .login__input:focus-visible {
+      outline: 2px solid var(--tone);
+      outline-offset: 0;
+      border-color: var(--tone);
+    }
+
+    .login__input[aria-invalid="true"] { border-color: var(--signal); }
+
+    .login__error { min-height: 1em; color: var(--signal); font-size: 0.85rem; }
+
+    .login__submit { margin-top: 4px; width: 100%; }
+
+    .login__note { color: var(--ink-3); font-size: 0.85rem; }
+
+    .modal__foot {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line-soft);
+      color: var(--ink-3);
+      font-size: 0.9rem;
+    }
+
+    .modal__foot a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ─── общие заголовки ──────────────────────────────────
+       Шкала размеров cursor.com: type-xl 52px / lh 1.15 /
+       трекинг -0.025em и type-2xl 72px / 1.1 / -0.03em.
+       Иерарию даёт размер и плотность трекинга, а не вес:
+       у них в типографике только 400, жирность — у кнопок. */
+
+    .h2 {
+      max-width: 22ch;
+      font-family: var(--display);
+      font-size: clamp(1.75rem, 4.2vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+
+    .section__lead {
+      max-width: 58ch;
+      margin-top: 14px;
+      color: var(--ink-2);
+      text-wrap: pretty;
+    }
+
+    /* ─── герой ────────────────────────────────────────── */
+
+    .hero { padding-block: clamp(88px, 12vw, 128px) clamp(56px, 9vw, 112px); }
+
+    /* ─── появление при скролле: аналог framer-motion whileInView.
+   Наблюдатель ниже вешает .is-in на элемент с [data-reveal].
+   Без JS остаётся видимым: базовое состояние — конечное. ─── */
+
+    [data-reveal] {
+      opacity: 1;
+      transform: none;
+    }
+
+    .js [data-reveal] {
+      opacity: 0;
+      transform: translateY(18px);
+      transition:
+        opacity var(--t-slow) var(--ease-out-expo),
+        transform var(--t-slow) var(--ease-out-expo);
+      transition-delay: min(
+        calc(var(--stagger-base) + var(--stagger-step) * var(--i, 0)),
+        var(--stagger-cap)
+      );
+    }
+
+    .js [data-reveal].is-in { opacity: 1; transform: none; }
+
+    .hero__grid { display: grid; gap: clamp(40px, 6vw, 64px); align-items: start; }
+
+    .hero__title {
+      font-family: var(--display);
+      font-size: clamp(2.15rem, 6.6vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      text-wrap: balance;
+    }
+
+    .hero__lead {
+      max-width: 46ch;
+      margin-top: 22px;
+      color: var(--ink-2);
+      font-size: 1.075rem;
+      text-wrap: pretty;
+    }
+
+    .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+
+    .hero__note {
+      max-width: 44ch;
+      margin-top: 20px;
+      padding-left: 16px;
+      border-left: 2px solid var(--tone);
+      color: var(--ink-3);
+      font-size: 0.9rem;
+    }
+
+    .hero__figure { margin: 0; }
+
+    /* рабочий лист */
+
+    .sheet__bar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 0.775rem;
+      color: var(--ink-3);
+    }
+
+    .sheet {
+      margin-top: 14px;
+      padding: clamp(16px, 3vw, 26px);
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+    }
+
+    /* Артборд — это картинка, а не интерфейс: у cursor для таких
+       блоков свой слой .media-light, и он не меняется от темы.
+       Поэтому здесь чернила зафиксированы: кадр остаётся таким,
+       каким его сделали, даже когда страница тёмная. */
+    .gen, .mini__inner, .pair__side--done {
+      --ink: #141C24;
+      --ink-2: #4A5560;
+      --ink-3: #5F6A75;
+      --line: rgba(20, 28, 36, 0.16);
+      --line-soft: rgba(20, 28, 36, 0.09);
+    }
+
+    .gen {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: var(--tone);
+    }
+
+    .gen__draft, .gen__final { position: absolute; inset: 0; }
+
+    .gen__draft {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 5%;
+      /* артборд, а не --sheet: чернила внутри .gen зафиксированы */
+      background: var(--artboard);
+      transition: opacity 200ms ease;
+    }
+
+    .draft__box { border: 1px dashed color-mix(in oklab, var(--accent) 50%, transparent); }
+
+    .draft__box--top { height: 22%; }
+    .draft__box--mid { height: 26%; }
+    .draft__box--row { flex: 1; }
+
+    .draft__line { height: 8px; background: var(--line); }
+    .draft__line--long { width: 62%; }
+    .draft__line--short { width: 34%; }
+
+    /* без скриптов сразу виден готовый кадр; скрипт откатывает его в черновик */
+    .gen__final {
+      display: flex;
+      flex-direction: column;
+      padding: 5%;
+      background: var(--artboard);
+      opacity: 1;
+      clip-path: none;
+    }
+
+    .js .gen__final { opacity: 0; clip-path: inset(0 100% 0 0); }
+
+    .js .gen.is-built .gen__draft { opacity: 0; }
+
+    .js .gen.is-built .gen__final {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+      transition: clip-path 900ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 150ms linear;
+    }
+
+    .gen__final::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 34%;
+      background: var(--tone);
+    }
+
+    .art__brand, .art__kicker, .art__head, .art__foot { position: relative; z-index: 1; }
+
+    .art__brand { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; }
+
+    .art__kicker {
+      max-width: 60%;
+      margin-top: auto;
+      font-size: clamp(0.62rem, 1.5vw, 0.78rem);
+      color: var(--ink-2);
+    }
+
+    .art__head {
+      margin-top: 4px;
+      font-family: var(--display);
+      font-size: clamp(1.05rem, 3.4vw, 2.1rem);
+      font-weight: 700;
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+
+    .art__foot {
+      margin: auto -5% -5%;
+      padding: 5%;
+      background: var(--tone);
+      color: var(--accent-ink);
+      font-size: clamp(0.62rem, 1.5vw, 0.8rem);
+      font-weight: 500;
+    }
+
+    /* отсчёт до сдачи */
+
+    .timer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px 16px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+    }
+
+    .timer__clock { flex: 0 0 auto; }
+
+    .timer__digits {
+      font-family: var(--mono);
+      font-size: 1.7rem;
+      font-weight: 500;
+      line-height: 1;
+      color: var(--signal);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer__label { flex: 1 1 auto; color: var(--ink-3); font-size: 0.9rem; }
+
+    /* ─── полоса сценария ──────────────────────────────── */
+
+    .scenario {
+      padding-block: clamp(52px, 8vw, 96px);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .ruler {
+      position: relative;
+      display: grid;
+      gap: 4px;
+      margin-top: clamp(32px, 5vw, 52px);
+      padding-top: 26px;
+    }
+
+    .ruler::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--ink);
+    }
+
+    .ruler__mark {
+      position: relative;
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      gap: 8px 18px;
+      padding: 18px 0;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .ruler__mark:first-of-type { border-top: 0; }
+
+    .ruler__mark::before {
+      content: "";
+      position: absolute;
+      top: -5px;
+      left: 0;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid var(--ink);
+    }
+
+    .ruler__mark:last-of-type::before { background: var(--signal); border-color: var(--signal); }
+
+    .ruler__time {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ruler__text { max-width: 46ch; color: var(--ink); }
+
+    /* ─── шаги ─────────────────────────────────────────── */
+
+    .how {
+      padding-block: clamp(52px, 8vw, 96px);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .steps {
+      display: grid;
+      gap: clamp(24px, 4vw, 44px);
+      margin-top: clamp(32px, 5vw, 52px);
+    }
+
+    .step { padding-top: 18px; border-top: 2px solid var(--ink); }
+
+    .step__title {
+      font-family: var(--display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+    }
+
+    .step__text { max-width: 40ch; margin-top: 10px; color: var(--ink-2); }
+
+    /* ─── настройки ────────────────────────────────────── */
+
+    .settings {
+      padding-block: clamp(52px, 8vw, 96px);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .settings__grid { display: grid; gap: clamp(36px, 5vw, 64px); align-items: start; }
+
+    .field { margin: 30px 0 0; padding: 0; border: 0; }
+
+    .field__legend { padding: 0; margin-bottom: 12px; color: var(--ink-3); font-size: 0.875rem; }
+
+    .field__row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .swatch, .seg, .toggle { position: relative; display: inline-flex; }
+
+    .swatch input, .seg input, .toggle input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .swatch label {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 48px;
+      padding: 10px 16px 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+      font-size: 0.925rem;
+      cursor: pointer;
+      transition: border-color 150ms ease, background-color 150ms ease;
+    }
+
+    .swatch label::before {
+      content: "";
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--swatch);
+    }
+
+    .swatch input:checked + label { border-color: var(--ink); background: var(--card); }
+
+    .swatch input:focus-visible + label,
+    .seg input:focus-visible + label,
+    .toggle input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+    .seg label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 48px;
+      padding: 10px 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: border-color 150ms ease, background-color 150ms ease;
+    }
+
+    .seg input:checked + label { border-color: var(--ink); background: var(--card); }
+
+    .toggle label {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      font-size: 0.975rem;
+      cursor: pointer;
+    }
+
+    .toggle input + label::before {
+      content: "";
+      width: 46px;
+      height: 26px;
+      border: 1px solid var(--ink);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+      transition: background-color 180ms ease;
+    }
+
+    .toggle input + label::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      margin-top: -9px;
+      width: 18px;
+      height: 18px;
+      background: var(--ink-3);
+      transition: transform 180ms ease, background-color 180ms ease;
+    }
+
+    .toggle input:checked + label::before { background: var(--tone); }
+
+    .toggle input:checked + label::after { transform: translateX(20px); background: var(--accent-ink); }
+
+    /* превью */
+
+    .settings__preview { min-width: 0; }
+
+    .mini {
+      display: grid;
+      place-items: center;
+      min-height: 340px;
+      padding: clamp(20px, 3vw, 34px);
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+    }
+
+    .mini__inner {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: min(100%, 340px);
+      aspect-ratio: var(--ratio, 1.7778);
+      padding: 7%;
+      overflow: hidden;
+      background: var(--artboard);
+      border: 1px solid var(--line);
+      transition: aspect-ratio 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .mini__inner::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 30%;
+      background: var(--tone);
+      transition: background-color 220ms ease;
+    }
+
+    .mini__brand, .mini__kicker, .mini__head, .mini__foot { position: relative; z-index: 1; }
+
+    .mini__brand { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; }
+
+    .mini__kicker { margin-top: auto; color: var(--ink-3); font-size: 0.7rem; }
+
+    .mini__head {
+      font-family: var(--display);
+      font-size: clamp(0.95rem, 2.6vw, 1.45rem);
+      font-weight: 700;
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+    }
+
+    .mini__foot {
+      margin: 10% -7% -7%;
+      padding: 5% 7%;
+      background: var(--tone);
+      color: var(--accent-ink);
+      font-size: 0.72rem;
+      font-weight: 500;
+      transition: background-color 220ms ease;
+    }
+
+    .mini.is-nologo .mini__brand { display: none; }
+
+    .preview__note { max-width: 40ch; margin-top: 16px; color: var(--ink-3); font-size: 0.9rem; }
+
+    /* ─── было и стало ─────────────────────────────────── */
+
+    .compare {
+      padding-block: clamp(52px, 8vw, 96px);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .pairs {
+      display: grid;
+      gap: clamp(28px, 4vw, 40px);
+      margin-top: clamp(32px, 5vw, 52px);
+    }
+
+    .toggle--card { display: block; }
+
+    .toggle--card label { min-height: 44px; font-size: 0.9rem; color: var(--ink-2); }
+
+    .pair__frame {
+      display: grid;
+      min-height: 300px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-paper);
+      background: var(--sheet);
+    }
+
+    .pair__side { grid-area: 1 / 1; padding: clamp(20px, 3vw, 30px); }
+
+    .pair__side--draft { display: flex; flex-direction: column; }
+
+    .pair__note { max-width: 40ch; color: var(--ink-3); font-size: 0.95rem; }
+
+    .scr {
+      display: grid;
+      place-items: center;
+      height: 26%;
+      border: 1px dashed var(--line);
+      color: var(--ink-3);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    .scr + .scr { margin-top: 8px; }
+
+    .pair__side--done { display: none; flex-direction: column; background: var(--artboard); }
+
+    .pair input:checked ~ .pair__frame .pair__side--draft { display: none; }
+
+    .pair input:checked ~ .pair__frame .pair__side--done { display: flex; }
+
+    .pair input:checked ~ .toggle--card label { color: var(--ink); }
+
+    .pair__brand { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; }
+
+    .pair__head {
+      margin-top: auto;
+      font-family: var(--display);
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      font-weight: 700;
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+
+    .pair__foot {
+      margin: 16px -30px -30px;
+      padding: 14px 30px;
+      background: var(--tone);
+      color: var(--accent-ink);
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .tri { display: flex; gap: 10px; margin-bottom: 20px; }
+
+    .tri span { width: 52px; height: 84px; border: 1px solid var(--line); background: var(--paper); }
+
+    .pair__caption { margin-top: 12px; color: var(--ink-3); font-size: 0.9rem; }
+
+    /* ─── цены ─────────────────────────────────────────── */
+
+    .price {
+      padding-block: clamp(52px, 8vw, 96px);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .tiers {
+      display: grid;
+      gap: 0;
+      margin-top: clamp(32px, 5vw, 52px);
+      border: 1px solid var(--line);
+      border-radius: var(--r-xs);
+      background: var(--sheet);
+      overflow: hidden;
+    }
+
+    .tier {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: clamp(24px, 3vw, 34px);
+      border-bottom: 1px solid var(--line-soft);
+      transition: background-color var(--t-fast) var(--ease-fast);
+    }
+
+    /* обводка отдельным слоем (как .card:before у cursor): при смене
+       фона под ней не меняется толщина рамки и не едет сетка */
+    .tier::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border: 1px solid transparent;
+      border-radius: var(--r-xs);
+      transition: border-color var(--t-fast) var(--ease-fast);
+    }
+
+    .tier:hover::before { border-color: var(--fg-14); }
+
+    .tier:last-child { border-bottom: 0; }
+
+    .tier--pick { background: var(--card); }
+
+    .tier--pick::before { border-color: var(--accent); }
+
+    .tier__flag {
+      align-self: flex-start;
+      margin-bottom: 10px;
+      padding: 4px 12px;
+      border-radius: var(--r-pill);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-size: 0.8rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tier__name { font-family: var(--display); font-size: 1.1rem; font-weight: 700; }
+
+    .tier__sum {
+      margin-top: 6px;
+      font-family: var(--display);
+      font-size: clamp(1.9rem, 5vw, 2.4rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .tier__note { color: var(--ink-3); font-size: 0.9rem; }
+
+    .tier__list { margin: 18px 0 24px; display: grid; gap: 9px; color: var(--ink-2); font-size: 0.95rem; }
+
+    /* галочка вместо рисованной черты: тот же тон, но это настоящая иконка */
+    .tier__list li {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .tier__list i {
+      margin-top: 0.42em;
+      color: var(--tone);
+      font-size: 0.8em;
+    }
+
+    .tier .btn { align-self: flex-start; margin-top: auto; }
+
+    /* ─── вопросы ──────────────────────────────────────── */
+
+    .faq {
+      padding-block: clamp(52px, 8vw, 96px);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .faq__grid { display: grid; gap: clamp(28px, 4vw, 56px); align-items: start; }
+
+    .faq__list { display: grid; }
+
+    .qa { border-top: 1px solid var(--line); }
+
+    .qa:last-child { border-bottom: 1px solid var(--line); }
+
+    .qa__q {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 60px;
+      padding: 16px 0;
+      font-family: var(--display);
+      font-size: 1.075rem;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .qa__q::-webkit-details-marker { display: none; }
+
+    .qa__q::after {
+      content: "";
+      flex: 0 0 auto;
+      width: 14px;
+      height: 14px;
+      background:
+        linear-gradient(var(--ink), var(--ink)) center / 14px 1px no-repeat,
+        linear-gradient(var(--ink), var(--ink)) center / 1px 14px no-repeat;
+      transition: transform 200ms ease;
+    }
+
+    .qa[open] .qa__q::after { transform: rotate(135deg); }
+
+    /* раскрытие по height, а не по display — иначе нет перехода */
+    .qa::details-content {
+      block-size: 0;
+      overflow: hidden;
+      transition: block-size var(--t-base) var(--ease),
+                  content-visibility var(--t-base) allow-discrete;
+      transition-delay: 0s;
+    }
+
+    .qa[open]::details-content { block-size: auto; }
+
+    @supports selector(::details-content) {
+      .qa__a {
+        opacity: 0;
+        transition: opacity var(--t-base) var(--ease);
+      }
+
+      .qa[open] .qa__a { opacity: 1; }
+    }
+
+    .qa__a { max-width: 62ch; padding-bottom: 20px; color: var(--ink-2); }
+
+    /* ─── финальный призыв ──────────────────────────────── */
+
+    .start {
+      padding-block: clamp(56px, 9vw, 104px);
+      border-top: 1px solid var(--line);
+      background: var(--plate-bg);
+      color: var(--plate-fg);
+    }
+
+    .start__title {
+      max-width: 26ch;
+      color: var(--plate-fg);
+      font-size: clamp(1.75rem, 5.2vw, 4.5rem);
+      letter-spacing: -0.03em;
+      text-wrap: balance;
+    }
+
+    .start__text { max-width: 52ch; margin-top: 18px; color: var(--plate-ink); }
+
+    .start .btn { margin-top: 28px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+    .start .btn:hover { background: var(--plate-fg); border-color: var(--plate-fg); color: var(--plate-bg); }
+
+    .start__mail { margin-top: 18px; color: var(--plate-note); font-size: 0.875rem; }
+
+    /* ─── подвал ───────────────────────────────────────── */
+
+    .foot { padding-block: 32px; border-top: 1px solid var(--line-soft); }
+
+    .foot__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .foot__brand { font-family: var(--display); font-size: 1rem; font-weight: 700; }
+
+    .foot__note { color: var(--ink-3); font-size: 0.9rem; }
+
+    /* ─── шире экрана ───────────────────────────────────── */
+
+    @media (min-width: 720px) {
+      .ruler { grid-template-columns: repeat(4, 1fr); gap: 0; }
+
+      .ruler__mark { display: block; padding: 22px 20px 0; border-top: 0; border-left: 1px solid var(--line-soft); }
+
+      .ruler__mark:first-of-type { border-left: 0; padding-left: 0; }
+
+      .ruler__mark::before { top: -6px; left: 20px; }
+
+      .ruler__mark:first-of-type::before { left: 0; }
+
+      .ruler__text { margin-top: 8px; }
+
+      .steps { grid-template-columns: repeat(3, 1fr); }
+
+      .pairs { grid-template-columns: repeat(2, 1fr); }
+
+      .pair:last-child { grid-column: span 2; }
+
+      .pair:last-child .pair__frame { min-height: 260px; }
+
+      .tiers { grid-template-columns: repeat(3, 1fr); }
+
+      .tier { border-bottom: 0; border-left: 1px solid var(--line-soft); }
+
+      .tier:first-child { border-left: 0; }
+
+      .faq__grid { grid-template-columns: 0.8fr 1.4fr; }
+
+      .start__inner { max-width: 60ch; }
+    }
+
+    @media (max-width: 959px) {
+      .modal__box { padding-top: 44px; }
+    }
+
+    @media (min-width: 960px) {
+      .top__nav { display: flex; }
+
+      .hero__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(48px, 5vw, 80px); }
+
+      .hero__figure { position: sticky; top: 100px; }
+
+      .settings__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); }
+
+      .mini { min-height: 420px; }
+    }
+
+    @media (min-width: 1200px) {
+      .pairs { grid-template-columns: repeat(3, 1fr); }
+
+      .pair:last-child { grid-column: auto; }
+
+      .pair:last-child .pair__frame { min-height: 300px; }
+    }
+
+    /* ─── движение и доступность ────────────────────────── */
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .js .gen__final { opacity: 1; clip-path: none; }
+
+      .gen__draft { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Перейти к содержанию</a>
+
+  <header class="top" data-top>
+    <div class="shell top__row">
+      <a class="mark" href="/" aria-label="IntelligencerAI — на главную">
+        <svg viewBox="0 0 895 118" fill="none" xmlns="http://www.w3.org/2000/svg"
+             role="img" aria-hidden="true" focusable="false"><path d="M9.50079e-05 93.5736V10.3442H19.2617V93.5736H9.50079e-05ZM37.706 93.5736V29.6059H55.4219V47.3218L52.0928 41.9714C54.3915 37.691 57.681 34.4015 61.9614 32.1028C66.2418 29.804 71.1166 28.6547 76.586 28.6547C81.659 28.6547 86.1772 29.6851 90.1405 31.7461C94.183 33.7277 97.3537 36.8191 99.6524 41.0202C101.951 45.142 103.1 50.4529 103.1 56.9527V93.5736H84.5522V59.8062C84.5522 54.654 83.4029 50.8492 81.1041 48.3919C78.8847 45.9347 75.714 44.7061 71.5922 44.7061C68.6594 44.7061 66.004 45.3402 63.626 46.6084C61.3273 47.7974 59.5041 49.6602 58.1566 52.1967C56.8884 54.7332 56.2542 57.9831 56.2542 61.9464V93.5736H37.706ZM146.071 94.5248C138.541 94.5248 132.675 92.6224 128.474 88.8176C124.273 84.9336 122.173 79.1868 122.173 71.5773V15.4569H140.721V71.3395C140.721 74.0345 141.434 76.1351 142.861 77.6411C144.288 79.0679 146.23 79.7813 148.687 79.7813C151.62 79.7813 154.117 78.9886 156.178 77.4033L161.172 90.4822C159.269 91.8297 156.97 92.8602 154.275 93.5736C151.66 94.2077 148.925 94.5248 146.071 94.5248ZM112.304 43.8738V29.6059H156.653V43.8738H112.304ZM201.356 94.5248C194.063 94.5248 187.643 93.098 182.094 90.2444C176.625 87.3908 172.384 83.5068 169.372 78.5923C166.36 73.5985 164.854 67.931 164.854 61.5897C164.854 55.1692 166.32 49.5017 169.253 44.5872C172.265 39.5934 176.347 35.7094 181.5 32.935C186.652 30.0815 192.478 28.6547 198.978 28.6547C205.24 28.6547 210.868 30.0022 215.861 32.6973C220.934 35.313 224.937 39.1178 227.87 44.1116C230.803 49.0261 232.269 54.9314 232.269 61.8275C232.269 62.5409 232.23 63.3732 232.151 64.3244C232.071 65.1963 231.992 66.0286 231.913 66.8213H179.954V56.0015H222.163L215.029 59.2118C215.029 55.8826 214.355 52.9894 213.008 50.5321C211.66 48.0749 209.798 46.1725 207.42 44.825C205.042 43.3982 202.267 42.6848 199.097 42.6848C195.926 42.6848 193.112 43.3982 190.655 44.825C188.277 46.1725 186.414 48.1145 185.067 50.651C183.719 53.1083 183.045 56.0411 183.045 59.4496V62.3031C183.045 65.7908 183.798 68.8822 185.304 71.5773C186.89 74.193 189.069 76.2143 191.844 77.6411C194.697 78.9886 198.027 79.6624 201.831 79.6624C205.24 79.6624 208.212 79.1472 210.749 78.1167C213.365 77.0863 215.743 75.5406 217.883 73.4796L227.751 84.1806C224.818 87.5097 221.133 90.0859 216.694 91.909C212.255 93.6529 207.142 94.5248 201.356 94.5248ZM244.618 93.5736V5.35046H263.167V93.5736H244.618ZM280.381 93.5736V5.35046H298.929V93.5736H280.381ZM316.143 93.5736V29.6059H334.692V93.5736H316.143ZM325.418 20.6884C322.009 20.6884 319.235 19.6976 317.095 17.716C314.955 15.7343 313.884 13.2771 313.884 10.3442C313.884 7.41138 314.955 4.95413 317.095 2.97248C319.235 0.990827 322.009 -6.89166e-07 325.418 -6.89166e-07C328.826 -6.89166e-07 331.6 0.951194 333.741 2.85358C335.881 4.6767 336.951 7.05468 336.951 9.98753C336.951 13.0789 335.881 15.6551 333.741 17.716C331.68 19.6976 328.905 20.6884 325.418 20.6884ZM381.988 117.591C375.963 117.591 370.137 116.838 364.509 115.332C358.961 113.905 354.324 111.726 350.598 108.793L357.97 95.476C360.665 97.6954 364.073 99.4393 368.195 100.708C372.396 102.055 376.518 102.729 380.561 102.729C387.14 102.729 391.896 101.262 394.829 98.3296C397.841 95.3967 399.347 91.0371 399.347 85.2507V75.6198L400.536 59.5685L400.298 43.3982V29.6059H417.895V82.8727C417.895 94.7626 414.804 103.521 408.621 109.149C402.438 114.777 393.56 117.591 381.988 117.591ZM379.134 90.4822C373.189 90.4822 367.799 89.214 362.964 86.6774C358.208 84.0617 354.363 80.4551 351.431 75.8576C348.577 71.1809 347.15 65.7512 347.15 59.5685C347.15 53.3064 348.577 47.8767 351.431 43.2793C354.363 38.6026 358.208 34.996 362.964 32.4595C367.799 29.9229 373.189 28.6547 379.134 28.6547C384.524 28.6547 389.28 29.7644 393.402 31.9839C397.524 34.124 400.734 37.4929 403.033 42.0903C405.331 46.6084 406.481 52.4345 406.481 59.5685C406.481 66.6231 405.331 72.4492 403.033 77.0466C400.734 81.5648 397.524 84.9336 393.402 87.153C389.28 89.3725 384.524 90.4822 379.134 90.4822ZM382.82 75.2631C386.07 75.2631 388.963 74.629 391.5 73.3607C394.036 72.0132 396.018 70.1505 397.444 67.7725C398.871 65.3945 399.585 62.6598 399.585 59.5685C399.585 56.3978 398.871 53.6631 397.444 51.3644C396.018 48.9864 394.036 47.1633 391.5 45.8951C388.963 44.5475 386.07 43.8738 382.82 43.8738C379.57 43.8738 376.677 44.5475 374.14 45.8951C371.604 47.1633 369.582 48.9864 368.076 51.3644C366.65 53.6631 365.936 56.3978 365.936 59.5685C365.936 62.6598 366.65 65.3945 368.076 67.7725C369.582 70.1505 371.604 72.0132 374.14 73.3607C376.677 74.629 379.57 75.2631 382.82 75.2631ZM466.905 94.5248C459.612 94.5248 453.192 93.098 447.643 90.2444C442.174 87.3908 437.933 83.5068 434.921 78.5923C431.909 73.5985 430.403 67.931 430.403 61.5897C430.403 55.1692 431.869 49.5017 434.802 44.5872C437.814 39.5934 441.896 35.7094 447.049 32.935C452.201 30.0815 458.027 28.6547 464.527 28.6547C470.789 28.6547 476.417 30.0022 481.41 32.6973C486.483 35.313 490.486 39.1178 493.419 44.1116C496.352 49.0261 497.819 54.9314 497.819 61.8275C497.819 62.5409 497.779 63.3732 497.7 64.3244C497.62 65.1963 497.541 66.0286 497.462 66.8213H445.503V56.0015H487.712L480.578 59.2118C480.578 55.8826 479.904 52.9894 478.557 50.5321C477.209 48.0749 475.347 46.1725 472.969 44.825C470.591 43.3982 467.816 42.6848 464.646 42.6848C461.475 42.6848 458.661 43.3982 456.204 44.825C453.826 46.1725 451.963 48.1145 450.616 50.651C449.268 53.1083 448.594 56.0411 448.594 59.4496V62.3031C448.594 65.7908 449.347 68.8822 450.853 71.5773C452.439 74.193 454.619 76.2143 457.393 77.6411C460.246 78.9886 463.576 79.6624 467.38 79.6624C470.789 79.6624 473.761 79.1472 476.298 78.1167C478.914 77.0863 481.292 75.5406 483.432 73.4796L493.3 84.1806C490.368 87.5097 486.682 90.0859 482.243 91.909C477.804 93.6529 472.691 94.5248 466.905 94.5248ZM510.167 93.5736V29.6059H527.883V47.3218L524.554 41.9714C526.853 37.691 530.142 34.4015 534.423 32.1028C538.703 29.804 543.578 28.6547 549.047 28.6547C554.12 28.6547 558.639 29.6851 562.602 31.7461C566.644 33.7277 569.815 36.8191 572.114 41.0202C574.412 45.142 575.562 50.4529 575.562 56.9527V93.5736H557.014V59.8062C557.014 54.654 555.864 50.8492 553.565 48.3919C551.346 45.9347 548.175 44.7061 544.054 44.7061C541.121 44.7061 538.465 45.3402 536.087 46.6084C533.789 47.7974 531.965 49.6602 530.618 52.1967C529.35 54.7332 528.716 57.9831 528.716 61.9464V93.5736H510.167ZM623.753 94.5248C616.857 94.5248 610.714 93.1376 605.324 90.3633C599.934 87.5097 595.693 83.5861 592.602 78.5923C589.589 73.5985 588.083 67.931 588.083 61.5897C588.083 55.1692 589.589 49.5017 592.602 44.5872C595.693 39.5934 599.934 35.7094 605.324 32.935C610.714 30.0815 616.857 28.6547 623.753 28.6547C630.491 28.6547 636.356 30.0815 641.35 32.935C646.344 35.7094 650.03 39.7123 652.408 44.9439L638.021 52.6723C636.356 49.6602 634.256 47.4407 631.719 46.014C629.262 44.5872 626.567 43.8738 623.634 43.8738C620.464 43.8738 617.61 44.5872 615.073 46.014C612.537 47.4407 610.516 49.462 609.01 52.0778C607.583 54.6936 606.869 57.8642 606.869 61.5897C606.869 65.3152 607.583 68.4859 609.01 71.1017C610.516 73.7174 612.537 75.7387 615.073 77.1655C617.61 78.5923 620.464 79.3057 623.634 79.3057C626.567 79.3057 629.262 78.6319 631.719 77.2844C634.256 75.8576 636.356 73.5985 638.021 70.5072L652.408 78.3545C650.03 83.5068 646.344 87.5097 641.35 90.3633C636.356 93.1376 630.491 94.5248 623.753 94.5248ZM694.021 94.5248C686.728 94.5248 680.308 93.098 674.759 90.2444C669.29 87.3908 665.049 83.5068 662.037 78.5923C659.025 73.5985 657.519 67.931 657.519 61.5897C657.519 55.1692 658.985 49.5017 661.918 44.5872C664.93 39.5934 669.012 35.7094 674.164 32.935C679.317 30.0815 685.143 28.6547 691.643 28.6547C697.905 28.6547 703.533 30.0022 708.526 32.6973C713.599 35.313 717.602 39.1178 720.535 44.1116C723.468 49.0261 724.934 54.9314 724.934 61.8275C724.934 62.5409 724.895 63.3732 724.815 64.3244C724.736 65.1963 724.657 66.0286 724.578 66.8213H672.619V56.0015H714.828L707.694 59.2118C707.694 55.8826 707.02 52.9894 705.673 50.5321C704.325 48.0749 702.462 46.1725 700.084 44.825C697.706 43.3982 694.932 42.6848 691.762 42.6848C688.591 42.6848 685.777 43.3982 683.32 44.825C680.942 46.1725 679.079 48.1145 677.731 50.651C676.384 53.1083 675.71 56.0411 675.71 59.4496V62.3031C675.71 65.7908 676.463 68.8822 677.969 71.5773C679.555 74.193 681.734 76.2143 684.509 77.6411C687.362 78.9886 690.691 79.6624 694.496 79.6624C697.905 79.6624 700.877 79.1472 703.414 78.1167C706.029 77.0863 708.407 75.5406 710.548 73.4796L720.416 84.1806C717.483 87.5097 713.797 90.0859 709.359 91.909C704.92 93.6529 699.807 94.5248 694.021 94.5248ZM737.283 93.5736V29.6059H754.999V47.6785L752.502 42.447C754.405 37.9288 757.456 34.5204 761.657 32.2217C765.859 29.8437 770.971 28.6547 776.995 28.6547V45.7762C776.203 45.6969 775.489 45.6573 774.855 45.6573C774.221 45.578 773.547 45.5384 772.834 45.5384C767.761 45.5384 763.639 47.0048 760.468 49.9376C757.377 52.7912 755.831 57.2697 755.831 63.3732V93.5736H737.283ZM773.517 93.5736L810.613 10.3442H829.637L866.852 93.5736H846.64L816.201 20.0939H823.811L793.254 93.5736H773.517ZM792.065 75.7387L797.178 61.1141H839.981L845.213 75.7387H792.065ZM875.488 93.5736V10.3442H894.749V93.5736H875.488Z" fill="white"/></svg>
+      </a>
+      <nav class="top__nav" aria-label="Разделы страницы">
+        <a href="#scenario">Когда нужно</a>
+        <a href="#how">Как работает</a>
+        <a href="#settings">Своё</a>
+        <a href="#compare">Примеры</a>
+        <a href="#price">Цены</a>
+      </nav>
+      <div class="top__actions">
+        <button class="theme" type="button" data-theme-toggle aria-pressed="false">
+          <i class="fa-solid fa-sun" aria-hidden="true"></i>
+          <i class="fa-solid fa-moon" aria-hidden="true"></i>
+          <span class="sr-only">Тема оформления</span>
+        </button>
+        <button class="login__btn" type="button" data-login-open>
+          <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+          Войти
+        </button>
+        <a class="btn btn--sm" href="#start">Прислать задачу</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="modal" data-modal hidden>
+    <div class="modal__scrim" data-login-close></div>
+    <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="login-title" data-modal-box>
+      <button class="modal__x" type="button" data-login-close aria-label="Закрыть окно входа">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+
+      <p class="modal__brand">IntelligencerAI</p>
+      <h2 class="modal__title" id="login-title">Вход в кабинет</h2>
+      <p class="modal__lead">
+        В кабинете хранятся ваши кадры, настройки стиля и история версий.
+      </p>
+
+      <form class="login" data-login-form novalidate>
+        <div class="login__field">
+          <label class="login__label" for="login-email">Почта</label>
+          <input class="login__input" id="login-email" name="email" type="email"
+                 autocomplete="email" inputmode="email" placeholder="you@example.com"
+                 aria-describedby="login-email-error" required>
+          <p class="login__error" id="login-email-error" data-error-for="email"></p>
+        </div>
+
+        <div class="login__field">
+          <label class="login__label" for="login-pass">Пароль</label>
+          <input class="login__input" id="login-pass" name="password" type="password"
+                 autocomplete="current-password" aria-describedby="login-pass-error" required>
+          <p class="login__error" id="login-pass-error" data-error-for="password"></p>
+        </div>
+
+        <button class="btn login__submit" type="submit">Войти</button>
+        <p class="login__note" data-login-note>Пароль забыли — напишите нам, восстановим.</p>
+      </form>
+
+      <p class="modal__foot">
+        Аккаунта нет? <a href="#start" data-login-close>Пришлите задачу</a> — заведём вместе с первым кадром.
+      </p>
+    </div>
+  </div>
+
+  <main id="main">
+
+    <section class="hero">
+      <div class="shell hero__grid">
+        <div class="hero__text">
+          <h1 class="hero__title" data-reveal style="--i:0">Когда времени нет,<br>а картинка нужна сегодня</h1>
+          <p class="hero__lead" data-reveal style="--i:1">
+            Описываете, что нужно, и получаете готовый кадр: баннер, обложку, слайд
+            для презентации, карточку для соцсетей. Дизайнера IntelligencerAI не
+            заменяет. Он нужен там, где ждать нельзя.
+          </p>
+          <div class="hero__actions" data-reveal style="--i:2">
+            <a class="btn" href="#start">Попробовать на своём тексте</a>
+            <a class="btn btn--ghost" href="#compare">Посмотреть примеры</a>
+          </div>
+          <p class="hero__note" data-reveal style="--i:3">
+            Средний кадр собирается за одну минуту. Текст на нём остаётся редактируемым.
+          </p>
+        </div>
+
+        <figure class="hero__figure" data-reveal style="--i:2">
+          <figcaption class="sheet__bar">
+            <span class="sheet__name">oblozhka_proekt.png</span>
+            <span class="sheet__dims">1600 × 900</span>
+          </figcaption>
+
+          <div class="sheet">
+            <div class="gen" data-gen>
+              <div class="gen__draft" aria-hidden="true">
+                <span class="draft__box draft__box--top"></span>
+                <span class="draft__line draft__line--long"></span>
+                <span class="draft__line draft__line--short"></span>
+                <span class="draft__box draft__box--mid"></span>
+                <span class="draft__box draft__box--row"></span>
+                <span class="draft__box draft__box--row"></span>
+              </div>
+              <div class="gen__final">
+                <span class="art__brand">IntelligencerAI</span>
+                <span class="art__kicker">Курс городского растениеводства</span>
+                <span class="art__head">Посадка<br>без чертежа</span>
+                <span class="art__foot">12 мест · старт 4 марта</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="timer">
+            <div class="timer__clock">
+              <span class="timer__digits" data-timer aria-hidden="true">04:12:37</span>
+              <p class="sr-only">До сдачи осталось меньше пяти часов. Это пример ситуации, когда ждать дизайнера уже нельзя.</p>
+            </div>
+            <p class="timer__label">До сдачи проекта</p>
+            <button class="btn btn--tiny" type="button" data-replay>
+              <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+              Повторить сборку
+            </button>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section class="scenario" id="scenario">
+      <div class="shell">
+        <h2 class="h2" data-reveal>Один вечер без дизайнера</h2>
+        <p class="section__lead">
+          Сценарий, на который рассчитан сервис. Час, а не неделя.
+        </p>
+
+        <ol class="ruler" data-stagger>
+          <li class="ruler__mark" data-reveal style="--i:0">
+            <span class="ruler__time">19:40</span>
+            <p class="ruler__text">Придумали продукт и название.</p>
+          </li>
+          <li class="ruler__mark" data-reveal style="--i:1">
+            <span class="ruler__time">22:10</span>
+            <p class="ruler__text">Нужна обложка для презентации, завтра показывать.</p>
+          </li>
+          <li class="ruler__mark" data-reveal style="--i:2">
+            <span class="ruler__time">00:20</span>
+            <p class="ruler__text">Дизайнер отвечает утром. Отправить файл сегодня уже нельзя.</p>
+          </li>
+          <li class="ruler__mark" data-reveal style="--i:3">
+            <span class="ruler__time">02:00</span>
+            <p class="ruler__text">Сдача. Кадр нужен один — но он нужен сейчас.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="how" id="how">
+      <div class="shell">
+        <h2 class="h2" data-reveal>Как это работает</h2>
+        <ol class="steps" data-stagger>
+          <li class="step" data-reveal style="--i:0">
+            <p class="step__title">Описываете задачу</p>
+            <p class="step__text">
+              Что за проект, куда пойдёт картинка, какой текст на ней и что должно
+              быть видно первым.
+            </p>
+          </li>
+          <li class="step" data-reveal style="--i:1">
+            <p class="step__title">Задаёте вид</p>
+            <p class="step__text">
+              Цвета, шрифт, настроение. Свои или из набора — как в кабинете команды,
+              чтобы все кадры выглядели одинаково.
+            </p>
+          </li>
+          <li class="step" data-reveal style="--i:2">
+            <p class="step__title">Получаете файлы</p>
+            <p class="step__text">
+              Готовый кадр в нужных размерах: квадрат, вертикаль, широкий кадр и
+              версия для печати. Текст можно поправить после.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="settings" id="settings">
+      <div class="shell settings__grid">
+        <div class="settings__controls" data-reveal style="--i:0">
+          <h2 class="h2">Своё вместо чужого</h2>
+          <p class="section__lead">
+            Сервис подстраивается под организацию: цвета, логотип, акцент и форматы
+            задаются один раз и дальше применяются ко всем кадрам.
+          </p>
+
+          <fieldset class="field">
+            <legend class="field__legend">Цвет кадра</legend>
+            <div class="field__row">
+              <span class="swatch">
+                <input type="radio" name="tone" id="tone-blue" value="#2246D8" checked data-tone>
+                <label for="tone-blue" style="--swatch:#2246D8">Синий</label>
+              </span>
+              <span class="swatch">
+                <input type="radio" name="tone" id="tone-green" value="#1F6B4A" data-tone>
+                <label for="tone-green" style="--swatch:#1F6B4A">Зелёный</label>
+              </span>
+              <span class="swatch">
+                <input type="radio" name="tone" id="tone-plum" value="#6A2E8F" data-tone>
+                <label for="tone-plum" style="--swatch:#6A2E8F">Сливовый</label>
+              </span>
+              <span class="swatch">
+                <input type="radio" name="tone" id="tone-graphite" value="#2B3038" data-tone>
+                <label for="tone-graphite" style="--swatch:#2B3038">Графит</label>
+              </span>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <p class="field__legend">Логотип</p>
+            <span class="toggle">
+              <input type="checkbox" id="logo-on" checked data-logo>
+              <label for="logo-on">Ставить логотип на кадр</label>
+            </span>
+          </div>
+
+          <fieldset class="field">
+            <legend class="field__legend">Формат</legend>
+            <div class="field__row">
+              <span class="seg">
+                <input type="radio" name="ratio" id="ratio-wide" value="1.7778" data-ratio checked>
+                <label for="ratio-wide">16:9</label>
+              </span>
+              <span class="seg">
+                <input type="radio" name="ratio" id="ratio-square" value="1" data-ratio>
+                <label for="ratio-square">1:1</label>
+              </span>
+              <span class="seg">
+                <input type="radio" name="ratio" id="ratio-story" value="0.5625" data-ratio>
+                <label for="ratio-story">9:16</label>
+              </span>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="settings__preview" data-reveal style="--i:1">
+          <div class="mini" data-mini style="--tone:#2246D8">
+            <div class="mini__inner">
+              <span class="mini__brand">IntelligencerAI</span>
+              <span class="mini__kicker">Городской курс</span>
+              <span class="mini__head">Посадка<br>без чертежа</span>
+              <span class="mini__foot">12 мест</span>
+            </div>
+          </div>
+          <p class="preview__note">
+            Настройки применяются к следующему кадру и дальше ко всей серии.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="compare" id="compare">
+      <div class="shell">
+        <h2 class="h2" data-reveal>Было и стало</h2>
+        <p class="section__lead">
+          Слева то, что обычно есть под рукой: текст в заметках и пустой файл.
+          Справа то, что уходит в презентацию.
+        </p>
+
+        <ul class="pairs" data-stagger>
+          <li class="pair" data-reveal style="--i:0">
+            <span class="toggle toggle--card">
+              <input type="checkbox" id="pair-1" data-pair>
+              <label for="pair-1">Показать, как было</label>
+            </span>
+            <div class="pair__frame">
+              <div class="pair__side pair__side--draft" aria-label="До: только текст в заметках">
+                <p class="pair__note">
+                  Заголовок: «Курс городского растениеводства». Фото — руки с
+                  рассадкой. Подпись: «12 мест, старт 4 марта».
+                </p>
+              </div>
+              <div class="pair__side pair__side--done" aria-label="После: готовый кадр">
+                <span class="pair__brand">IntelligencerAI</span>
+                <span class="pair__head">Посадка<br>без чертежа</span>
+                <span class="pair__foot">12 мест · старт 4 марта</span>
+              </div>
+            </div>
+            <p class="pair__caption">Кадр для презентации проекта</p>
+          </li>
+
+          <li class="pair" data-reveal style="--i:1">
+            <span class="toggle toggle--card">
+              <input type="checkbox" id="pair-2" data-pair>
+              <label for="pair-2">Показать, как было</label>
+            </span>
+            <div class="pair__frame">
+              <div class="pair__side pair__side--draft" aria-label="До: три разных скриншота">
+                <span class="scr">1</span>
+                <span class="scr">2</span>
+                <span class="scr">3</span>
+              </div>
+              <div class="pair__side pair__side--done" aria-label="После: один кадр с тремя экранами">
+                <span class="tri"><span></span><span></span><span></span></span>
+                <span class="pair__brand">IntelligencerAI</span>
+                <span class="pair__head">Приложение: три шага</span>
+              </div>
+            </div>
+            <p class="pair__caption">Кадр для витрины приложения</p>
+          </li>
+
+          <li class="pair" data-reveal style="--i:2">
+            <span class="toggle toggle--card">
+              <input type="checkbox" id="pair-3" data-pair>
+              <label for="pair-3">Показать, как было</label>
+            </span>
+            <div class="pair__frame">
+              <div class="pair__side pair__side--draft" aria-label="До: объявление одним куском текста">
+                <p class="pair__note">
+                  «Открыли набор в кружок робототехники, 8–11 класс, вторник
+                  и четверг, приходите в кабинет 214».
+                </p>
+              </div>
+              <div class="pair__side pair__side--done" aria-label="После: объявление-афиша">
+                <span class="pair__brand">IntelligencerAI</span>
+                <span class="pair__head">Кружок<br>робототехники</span>
+                <span class="pair__foot">вторник и четверг · кабинет 214</span>
+              </div>
+            </div>
+            <p class="pair__caption">Афиша на стенд школы</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="price" id="price">
+      <div class="shell">
+<h2 class="h2" data-reveal>Цены</h2>
+      <p class="section__lead">
+        Кадр и пакет можно взять сразу, без переписки. Командный тариф
+        обсуждаем — там важно знать, сколько у вас людей и какие форматы.
+      </p>
+
+      <ul class="tiers" data-stagger>
+        <li class="tier" data-reveal style="--i:0">
+          <p class="tier__name">Разово</p>
+          <p class="tier__sum">490 ₽</p>
+          <p class="tier__note">за один кадр</p>
+          <ul class="tier__list">
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Три формата из одного кадра</span></li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Правка текста после сборки</span></li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Готовый файл сразу</span></li>
+          </ul>
+          <a class="btn btn--ghost" href="#start">Выбрать</a>
+        </li>
+
+        <li class="tier tier--pick" data-reveal style="--i:1">
+          <p class="tier__flag">Чаще всего берут</p>
+          <p class="tier__name">Малые организации</p>
+          <p class="tier__sum">1 990 ₽</p>
+          <p class="tier__note">пакет на 10 кадров, действует месяц</p>
+          <ul class="tier__list">
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Свои цвета и логотип</span></li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Один стиль на всю серию</span></li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Выгрузка в презентацию</span></li>
+          </ul>
+          <a class="btn" href="#start">Выбрать</a>
+        </li>
+
+        <li class="tier tier--talk" data-reveal style="--i:2">
+          <p class="tier__name">Команда</p>
+          <p class="tier__sum">6 900 ₽</p>
+          <p class="tier__note">в месяц, после разговора</p>
+          <ul class="tier__list">
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Общий стиль и правки команды</span></li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>История версий кадра</span></li>
+            <li><i class="fa-solid fa-check" aria-hidden="true"></i><span>Печатные форматы</span></li>
+          </ul>
+          <a class="btn btn--ghost" href="mailto:hello@example.com?subject=%D0%9A%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D0%BD%D1%8B%D0%B9%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%D0%BE%D0%B1%D1%81%D1%83%D0%B4%D0%B8%D1%82%D1%8C">
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            Обсудить
+          </a>
+        </li>
+      </ul>
+      <p class="tiers__foot">
+        Цены без НДС. Командный тариф считаем под ваш объём —
+        напишите, сколько кадров в месяц нужно.
+      </p>
+      </div>
+    </section>
+
+    <section class="faq" id="faq">
+      <div class="shell faq__grid">
+        <h2 class="h2" data-reveal>Вопросы</h2>
+        <div class="faq__list" data-reveal style="--i:1">
+          <details class="qa">
+            <summary class="qa__q">Это замена дизайнеру?</summary>
+            <p class="qa__a">
+              Нет. Сервис берёт на себя простые кадры и первые версии, когда сроки
+              не ждут. Замысловатая айдентика и продуктовый дизайн по-прежнему
+              делает человек.
+            </p>
+          </details>
+          <details class="qa">
+            <summary class="qa__q">Что с текстом на картинке?</summary>
+            <p class="qa__a">
+              Текст остаётся редактируемым: можно поправить формулировку, имя или
+              цену и собрать заново из того же кадра.
+            </p>
+          </details>
+          <details class="qa">
+            <summary class="qa__q">Пойдёт ли это в презентацию и печать?</summary>
+            <p class="qa__a">
+              Да. Есть выгрузка в презентацию, а также версии для печати с
+              нормальным разрешением.
+            </p>
+          </details>
+          <details class="qa">
+            <summary class="qa__q">Сколько ждать результат?</summary>
+            <p class="qa__a">
+              Обычная сборка — около минуты. Если очередь длинная, мы показываем
+              точное время в ожидании.
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="start" id="start">
+      <div class="shell start__inner" data-reveal>
+        <h2 class="h2 start__title">Опишите задачу — покажем, как это будет выглядеть</h2>
+        <p class="start__text">
+          Напишите, что нужно сделать и к какому сроку. Пришлём два-три варианта
+          кадра, чтобы можно было сразу выбрать.
+        </p>
+        <a class="btn btn--big" href="mailto:hello@example.com?subject=%D0%A7%D0%B5%D1%80%D0%BD%D0%BE%D0%B2%D0%B8%D0%BA">
+          Написать нам
+        </a>
+        <p class="start__mail">Почта в примере — заглушка, поменяй на свой адрес в шаблоне.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <div class="shell foot__row">
+      <p class="foot__brand">IntelligencerAI</p>
+      <p class="foot__note">Картинки, когда времени нет.</p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      /* ─── тема ────────────────────────────────────────────
+         Атрибут ставит скрипт в <head>, здесь только переключаем.
+         Пока не сделано ни одного выбора, тема следует за ОС
+         на лету: если юзер не выбирал вручную, его смена
+         настроек системы должна видна. */
+
+      var themeBtn = document.querySelector('[data-theme-toggle]');
+      var themeMeta = document.querySelectorAll('meta[name="theme-color"]');
+      var systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+      var themeColors = { light: '#EDEEEA', dark: '#0F1216' };
+
+      function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        if (themeBtn) themeBtn.setAttribute('aria-pressed', String(theme === 'dark'));
+        /* meta с media отвечает только за ОС: если тему выбрали вручную,
+           перекрашиваем тот, что совпадает с текущей, и снимаем media,
+           иначе браузер всё равно выберет системный */
+        for (var i = 0; i < themeMeta.length; i++) {
+          var isLight = themeMeta[i].getAttribute('media') === '(prefers-color-scheme: light)';
+          if (isLight === (theme === 'light')) {
+            themeMeta[i].setAttribute('content', themeColors[theme]);
+            themeMeta[i].removeAttribute('media');
+          }
+        }
+      }
+
+      if (themeBtn) {
+        themeBtn.addEventListener('click', function () {
+          var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          setTheme(next);
+          try { localStorage.setItem('theme', next); } catch (e) { /* приватный режим */ }
+        });
+
+        var onSystemChange = function (event) {
+          var saved = null;
+          try { saved = localStorage.getItem('theme'); } catch (e) { /* приватный режим */ }
+          if (!saved) setTheme(event.matches ? 'dark' : 'light');
+        };
+
+        if (systemDark.addEventListener) systemDark.addEventListener('change', onSystemChange);
+        else if (systemDark.addListener) systemDark.addListener(onSystemChange);
+      }
+
+      /* синхронизируем aria-pressed с тем, что поставил <head> */
+      if (themeBtn) {
+        themeBtn.setAttribute('aria-pressed', String(document.documentElement.getAttribute('data-theme') === 'dark'));
+      }
+
+      /* сборка кадра в герое: каркас «печатается» в готовый */
+      var gen = document.querySelector('[data-gen]');
+      var replay = document.querySelector('[data-replay]');
+
+      function build() {
+        if (!gen) return;
+        gen.classList.remove('is-built');
+        if (reduceMotion.matches) {
+          gen.classList.add('is-built');
+          return;
+        }
+        window.requestAnimationFrame(function () {
+          window.setTimeout(function () {
+            gen.classList.add('is-built');
+          }, 180);
+        });
+      }
+
+      if (replay) {
+        replay.addEventListener('click', build);
+      }
+
+      /* отсчёт до сдачи */
+      var clock = document.querySelector('[data-timer]');
+      var left = 4 * 3600 + 12 * 60 + 37;
+
+      function pad(value) {
+        return value < 10 ? '0' + value : String(value);
+      }
+
+      function paint() {
+        if (!clock) return;
+        var h = Math.floor(left / 3600);
+        var m = Math.floor((left % 3600) / 60);
+        var s = left % 60;
+        clock.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+      }
+
+      function tick() {
+        if (reduceMotion.matches) return;
+        left -= 1;
+        if (left < 0) left = 4 * 3600 + 12 * 60 + 37;
+        paint();
+      }
+
+      if (clock) {
+        paint();
+        window.setInterval(tick, 1000);
+      }
+
+      /* ─── появление при скролле ───
+         Базовая разметка без [data-reveal] видна сразу — движение
+         всегда надстройка, а не условие существования контента. */
+
+      var revealables = Array.prototype.slice.call(document.querySelectorAll('[data-reveal]'));
+
+      if (revealables.length) {
+        if (reduceMotion.matches || !('IntersectionObserver' in window)) {
+          revealables.forEach(function (el) { el.classList.add('is-in'); });
+        } else {
+          var pending = revealables.slice();
+
+          /* Наблюдатель ловит плавное появление, но если прыгнуть по якорю
+             или прокрутить быстро, элемент может проскочить мимо наблюдателя
+             и остаться невидимым навсегда. Поэтому дополнительно
+             снимаем всё, что уже выше нижней кромки. */
+          var sweep = function () {
+            var edge = window.innerHeight * 0.88;
+            pending = pending.filter(function (el) {
+              if (el.getBoundingClientRect().top < edge) {
+                el.classList.add('is-in');
+                return false;
+              }
+              return true;
+            });
+            };
+
+          var stopSweeping = function () {
+            if (pending.length) return;
+            window.removeEventListener('scroll', sweep);
+            window.removeEventListener('resize', sweep);
+            window.removeEventListener('hashchange', sweep);
+          };
+
+          var revealer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-in');
+              pending = pending.filter(function (el) { return el !== entry.target; });
+              revealer.unobserve(entry.target);
+            });
+            /* Прыжок по якорю, Ctrl+F или быстрая прокрутка: часть
+               блоков уже выше экрана и наблюдатель их не увидит.
+               Подметаем здесь же — колбэк гарантированно приходит
+               от блока у края экрана. */
+            sweep();
+            stopSweeping();
+          }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
+
+          revealables.forEach(function (el) { revealer.observe(el); });
+          window.addEventListener('scroll', sweep, { passive: true });
+          window.addEventListener('resize', sweep);
+          window.addEventListener('hashchange', sweep);
+          sweep();
+        }
+      }
+
+      /* ─── шапка: плотнеет после первого экрана ──── */
+
+      var top = document.querySelector('[data-top]');
+      var hero = document.querySelector('.hero');
+
+      if (top && hero) {
+        var syncTop = function () {
+          top.classList.toggle('is-solid', window.scrollY > 24);
+        };
+        window.addEventListener('scroll', syncTop, { passive: true });
+        syncTop();
+      }
+
+      /* ─── вход: окно, фокус, клавиатура ──── */
+
+      var modal = document.querySelector('[data-modal]');
+      var form = document.querySelector('[data-login-form]');
+      var openers = Array.prototype.slice.call(document.querySelectorAll('[data-login-open]'));
+      var closers = Array.prototype.slice.call(document.querySelectorAll('[data-login-close]'));
+      var box = modal ? modal.querySelector('[data-modal-box]') : null;
+      var lastFocus = null;
+
+      function focusables() {
+        if (!box) return [];
+        return Array.prototype.slice.call(
+          box.querySelectorAll('a[href], button, input, select, textarea')
+        ).filter(function (el) {
+          return !el.disabled && el.offsetParent !== null;
+        });
+      }
+
+      function openModal(source) {
+        if (!modal) return;
+        lastFocus = source && source.focus ? source : document.activeElement;
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        var first = focusables()[1] || focusables()[0];
+        if (first) first.focus();
+      }
+
+      function finishClose() {
+        if (!modal) return;
+        modal.hidden = true;
+        modal.classList.remove('is-closing');
+        document.body.style.overflow = '';
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+      }
+
+      /* выход анимируем, но не держим фокус в уже скрытом окне */
+      function closeModal() {
+        if (!modal || modal.hidden) return;
+        document.body.style.overflow = '';
+
+        if (reduceMotion.matches || !modal.animate) {
+          finishClose();
+          return;
+        }
+
+        modal.classList.add('is-closing');
+        var closing = modal;
+        window.setTimeout(function () {
+          if (closing.classList.contains('is-closing')) finishClose();
+        }, 170);
+      }
+
+      openers.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          openModal(btn);
+        });
+      });
+
+      closers.forEach(function (el) {
+        el.addEventListener('click', closeModal);
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (!modal || modal.hidden) return;
+
+        if (event.key === 'Escape') {
+          closeModal();
+          return;
+        }
+
+        if (event.key !== 'Tab') return;
+
+        var list = focusables();
+        if (!list.length) return;
+
+        var first = list[0];
+        var last = list[list.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+
+      if (form) {
+        var note = form.querySelector('[data-login-note]');
+
+        var setError = function (input, message) {
+          var box = form.querySelector('[data-error-for="' + input.name + '"]');
+          if (box) box.textContent = message;
+          if (message) {
+            input.setAttribute('aria-invalid', 'true');
+          } else {
+            input.removeAttribute('aria-invalid');
+          }
+        };
+
+        var email = form.querySelector('#login-email');
+        var pass = form.querySelector('#login-pass');
+
+        [email, pass].forEach(function (input) {
+          if (!input) return;
+          input.addEventListener('input', function () {
+            if (input.getAttribute('aria-invalid') === 'true') setError(input, '');
+          });
+        });
+
+        form.addEventListener('submit', function (event) {
+          event.preventDefault();
+          var bad = false;
+
+          if (email) {
+            if (!email.value.trim()) {
+              setError(email, 'Напишите почту — на неё придёт ссылка для входа.');
+              bad = true;
+            } else if (!email.checkValidity()) {
+              setError(email, 'Проверьте адрес: почта должна быть вида name@example.com.');
+              bad = true;
+            } else {
+              setError(email, '');
+            }
+          }
+
+          if (pass) {
+            if (!pass.value) {
+              setError(pass, 'Введите пароль.');
+              bad = true;
+            } else if (pass.value.length < 8) {
+              setError(pass, 'Пароль короче 8 символов.');
+              bad = true;
+            } else {
+              setError(pass, '');
+            }
+          }
+
+          if (bad) {
+            if (note) note.textContent = 'Проверьте отмеченные поля.';
+            var firstBad = form.querySelector('[aria-invalid="true"]');
+            if (firstBad) firstBad.focus();
+            return;
+          }
+
+          /* бэкенда пока нет: показываем честный статус, а не выдуманный успех */
+          if (note) note.textContent = 'Вход пока не подключён — напишите нам, и мы заведём кабинет.';
+        });
+      }
+
+      /* настройки кадра: цвет, логотип, формат */
+      var mini = document.querySelector('[data-mini]');
+      var inner = mini ? mini.querySelector('.mini__inner') : null;
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-tone]'), function (input) {
+        input.addEventListener('change', function () {
+          if (mini) mini.style.setProperty('--tone', input.value);
+        });
+      });
+
+      var logo = document.querySelector('[data-logo]');
+
+      if (logo && mini) {
+        var syncLogo = function () {
+          mini.classList.toggle('is-nologo', !logo.checked);
+        };
+        logo.addEventListener('change', syncLogo);
+        syncLogo();
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-ratio]'), function (input) {
+        input.addEventListener('change', function () {
+          if (inner) inner.style.setProperty('--ratio', input.value);
+        });
+      });
+
+      build();
+    })();
+  </script>
+</body>
+</html>
